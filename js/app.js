@@ -1,29 +1,78 @@
 (function () {
-    document.addEventListener('DOMContentLoaded', function () {
-        let db;
-        const openOrCreateDB = window.indexedDB.open('crm', 1);
+    let db;
+    document.addEventListener('DOMContentLoaded', () => {
+        createDB();
 
-        openOrCreateDB.addEventListener('error', () => console.error('Error opening DB'));
+        if (window.indexedDB.open('crm', 1)) {
+            getCustomers();
+        }
+    });
 
-        openOrCreateDB.addEventListener('success', () => {
-            console.log('Successfully opened DB');
-            db = openOrCreateDB.result;
-        });
+    function createDB() {
+        let createDB = indexedDB.open('crm', 1);
 
-        openOrCreateDB.addEventListener('upgradeneeded', init => {
-            db = init.target.result;
-
-            db.onerror = () => {
-                console.error('Error loading database.');
-            };
-
-            const objectStore = db.createObjectStore('crm', { keyPath: 'id', autoIncrement: true });
-
+        createDB.onupgradeneeded = function (e) {
+            let db = e.target.result;
+            let objectStore = db.createObjectStore('crm', { keyPath: 'id', autoIncrement: true });
+            objectStore.createIndex('id', 'id', { unique: true });
             objectStore.createIndex('name', 'name', { unique: false });
             objectStore.createIndex('email', 'email', { unique: true });
             objectStore.createIndex('phone', 'phone', { unique: false });
             objectStore.createIndex('company', 'company', { unique: false });
-            objectStore.createIndex('id', 'id', { unique: false });
-        });
-    })
+        };
+
+        createDB.onsuccess = function (e) {
+            db = e.target.result;
+            console.log('Connection to DB success :)');
+            // Database opened successfully
+        };
+
+        createDB.onerror = function (e) {
+            // Error occurred while opening the database
+            console.log('Some error ocurred :(');
+        };
+    }
+
+    function getCustomers() {
+        const openDB = window.indexedDB.open('crm', 1);
+        openDB.onerror = function () {
+            console.log('There was an error');
+        }
+
+        openDB.onsuccess = function (e) {
+            db = e.target.result;
+            const objectStore = db.transaction('crm').objectStore('crm');
+
+            objectStore.openCursor().onsuccess = function (e) {
+                const cursor = e.target.result;
+                if (cursor) {
+                    const { name, email, phone, company, id } = cursor.value;
+                    const listCustomers = document.querySelector('#list-customers');
+
+                    listCustomers.innerHTML += ` <tr>
+                    <td class="px-6 py-4 whitespace-no-wrap border-b border-gray-200">
+                        <p class="text-sm leading-5 font-medium text-gray-700 text-lg  font-bold"> ${name} </p>
+                        <p class="text-sm leading-10 text-gray-700"> ${email} </p>
+                    </td>
+                    <td class="px-6 py-4 whitespace-no-wrap border-b border-gray-200 ">
+                        <p class="text-gray-700">${phone}</p>
+                    </td>
+                    <td class="px-6 py-4 whitespace-no-wrap border-b border-gray-200  leading-5 text-gray-700">    
+                        <p class="text-gray-600">${company}</p>
+                    </td>
+                    <td class="px-6 py-4 whitespace-no-wrap border-b border-gray-200 text-sm leading-5">
+                        <a href="edit-customer.html?id=${id}" class="text-teal-600 hover:text-teal-900 mr-5">Editar</a>
+                        <a href="#" data-customer="${id}" class="text-red-600 hover:text-red-900">Delete</a>
+                    </td>
+                </tr>
+            `;
+
+                    cursor.continue();
+                } else {
+                    console.log('No more data');
+                }
+            }
+        }
+    }
+
 })();
